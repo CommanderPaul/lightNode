@@ -1,0 +1,40 @@
+---
+
+- name: Set target_state and stack name for playbook
+  set_fact:
+    cacheable: yes
+    target_state: "{{ target_state }}"
+    stack_name: "{{ lookup('ini', 'stack_name section=configuration file=./secrets.ini') }}"
+
+- name: Get localhost external ip address
+  ipify_facts:
+  register: external_ip_address
+
+- name: Set localhost_external_ip_address for playbook
+  set_fact:
+    cacheable: yes
+    localhost_external_ip_address: "{{ external_ip_address.ansible_facts.ipify_public_ip }}"
+
+- name: Set certbot_tos_email_address for playbook
+  set_fact:
+    cacheable: yes
+    certbot_tos_email_address: "{{ lookup('ini', 'certbot_tos_email_address section=secrets file=./secrets.ini') }}"
+
+- name: Set AWS Credential Section
+  set_fact:
+    cacheable: yes
+    aws_creds_section: "{{ lookup('ini', 'aws_creds_section section=secrets file=./secrets.ini') }}"
+
+- name: Set AWS Creds Lookups
+  set_fact:
+    cacheable: yes
+    aws_access_key_lookup: "aws_access_key_id section={{ hostvars['localhost']['aws_creds_section'] }} file=~/.aws/credentials"
+    aws_secret_key_lookup: "aws_secret_access_key section={{ hostvars['localhost']['aws_creds_section'] }} file=~/.aws/credentials"
+
+- name: Set secrets
+  set_fact:
+    cacheable: yes
+    target_aws_access_key: "{{ lookup('ini', aws_access_key_lookup) }}"
+    target_aws_secret_key: "{{ lookup('ini', aws_secret_key_lookup) }}"
+    ec2_ssh_key_name: "{{ lookup('ini', 'ec2_ssh_key_name section=secrets file=./secrets.ini') }}"
+    ssh_key_directory: "{{ lookup('ini', 'ssh_key_directory section=secrets file=./secrets.ini') }}"
