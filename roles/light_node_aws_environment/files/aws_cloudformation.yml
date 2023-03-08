@@ -1,0 +1,96 @@
+---
+
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Low availability, but low cost deployment for nginx website
+
+Parameters:
+  StackName:
+    Description: An environment name that is prefixed to resource names and used as the subdomain
+    Type: String
+  AdminIPAddress:
+    Description: Admin IP Address (CIDR notation)
+    Type: String
+  KeyName:
+    Description: Name of ssh key for EC2 instance
+    Type: String
+    Default: id_rsa
+  ImageId:
+    Description: Region specific AMI
+    Type: String
+  InstanceType:
+    Description: Type of instance   
+    Type: String
+    Default: t3a.micro
+
+Resources:
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: standard
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Sub ${StackName}
+              - EIP
+  EC2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref ImageId
+      CreditSpecification :
+        CPUCredits: "standard"
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Sub ${StackName}
+              - EC2
+  EIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties: 
+      AllocationId: !GetAtt EIP.AllocationId
+      InstanceId: !Ref EC2
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for ${StackName}
+      GroupName: !Sub ${StackName}
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Sub ${StackName}
+              - sg
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: used by cerbot
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: general https access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminIPAddress
+          Description: admin ports
+  # Security Group Ingress needs to be separate from security group in order to add self
+  SGIngressSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SecurityGroup
+    Properties:
+      GroupName: !Sub ${StackName}
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !GetAtt SecurityGroup.GroupId
+      Description: self access
