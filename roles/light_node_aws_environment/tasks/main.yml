@@ -1,0 +1,47 @@
+---
+# Reminder: aws credentials must be set or it will use the default group in .aws file.
+- name: Deploy Light Node cloudformation
+  cloudformation:
+    stack_name: "{{ stack_name }}-cloudformation"
+    state: "{{ target_state }}"
+    termination_protection: true
+    aws_access_key: "{{ target_aws_access_key }}"
+    aws_secret_key: "{{ target_aws_secret_key }}"
+    region: "{{ target_region }}"
+    disable_rollback: false
+    template: roles/light_node_aws_environment/files/aws_cloudformation.yml
+    template_parameters:
+      StackName: "{{ stack_name }}"
+      AdminIPAddress: "{{ localhost_external_ip_address }}/32"
+      KeyName: "{{ ec2_ssh_key_name }}"
+      # Ubuntu 20.04 HVM x88 64bit us-west-2
+      ImageId: "ami-056cb9ae6e2df09e8"
+      InstanceType: "t3a.micro"
+    tags:
+      Stack: "{{ stack_name }}"
+  register: cloutformation_deploy_output
+
+- name: Find and Set EIP address
+  set_fact:
+    eip_address: "{{item.physical_resource_id}}"
+  when: target_state == "present"
+            and item.logical_resource_id == "EIP"
+  loop: "{{ cloutformation_deploy_output.stack_resources }}"
+
+- name: Add host to inventory
+  add_host:
+    hostname: light_node
+    ansible_ssh_host: '{{ eip_address }}'
+    ansible_ssh_private_key_file: "{{ ssh_key_directory }}{{  ec2_ssh_key_name }}"
+  when: target_state == "present"
+
+- name: Add record and associate ip address to sites in list
+  route53:
+    state: "{{ target_state }}"
+    zone: "{{ lookup('ini', 'zone section=route_53 file=./secrets.ini') }}"
+    record: "{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}"
+    type: A
+    ttl: 7200
+    value: "{{ eip_address }}"
+    overwrite: true
+    wait: yes
