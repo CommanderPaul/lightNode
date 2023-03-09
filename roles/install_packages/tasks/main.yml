@@ -1,0 +1,94 @@
+---
+
+# TODO rename role to install packages
+
+
+# trying to install nginx and update the cache in the same step fails on first run
+- name: Update cache as a separate step
+  apt:
+    update_cache: yes
+
+- name: Upgrade all packages
+  apt:
+    upgrade: full
+    force_apt_get: yes
+
+- name: Perform autoclean
+  apt:
+    autoclean: yes
+    force_apt_get: yes
+
+- name: Perform autoremove
+  apt:
+    autoremove: yes
+    force_apt_get: yes
+
+
+### install all the apt stuff here
+
+- name: Install vim
+  apt:
+   name: vim
+   state: present
+
+- name: Install git
+  apt:
+   name: git
+   state: present
+
+- name: Install nodejs
+  apt:
+   name: nodejs
+   state: present
+
+- name: Install npm
+  apt:
+   name: npm
+   state: present
+
+- name: Install express
+  npm:
+    name: express
+    global: yes
+    state: present
+
+# # TODO do we need to set the host name??
+# - name: Set hostname
+#   hostname:
+#     name: "{{ hostvars['localhost']['host_name'] }}"
+
+# # TODO do we care about local dns?
+# # https://serverfault.com/questions/363095/why-does-my-hostname-appear-with-the-address-127-0-1-1-rather-than-127-0-0-1-in
+# - name: configure local dns in hosts file
+#   lineinfile:
+#     path: /etc/hosts
+#     regexp: '^127.0.1.1'
+#     line: "127.0.1.1  \t {{ hostvars['localhost']['host_name'] }}"
+#     state: present
+
+
+
+
+- name: Install latest nginx
+  apt:
+    name: nginx
+    state: latest
+  notify:
+  - Restart nginx
+
+- name: Install certbot as snap
+  snap:
+    name: certbot
+    classic: yes
+
+- name: Prepare certbot command
+  file:
+    src: /snap/bin/certbot
+    dest: /usr/bin/certbot
+    state: link
+
+- name: Ensure nginx started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
