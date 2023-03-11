@@ -1,0 +1,6 @@
+---
+
+- name: Restart express
+  service:
+    name: "{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}.service"
+    state: restarted

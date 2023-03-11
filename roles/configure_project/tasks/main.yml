@@ -1,0 +1,49 @@
+---
+
+- name: Create repo directory
+  file:
+    path: "/home/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}"
+    state: directory
+
+- name: Clone project or pull master branch
+  git:
+    clone: true
+    force: true
+    depth: 1
+    repo: "{{ lookup('ini', 'git_source section=configuration file=./secrets.ini') }}"
+    dest: "/home/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}"
+    single_branch: yes
+    version: master
+  notify:
+  - Restart express
+
+# This project uses a .env file for the api secret
+- name: Create env file for this project
+  copy:
+    content: |
+      API_KEY = {{ lookup('ini', 'api_key section=secrets file=./secrets.ini')}}
+    dest: "/home/{{ lookup('ini', 'record section=route_53 file=./secrets.ini')}}/.env"
+    force: true
+  notify:
+  - Restart express
+
+- name: Create node express service file
+  copy:
+    content: |
+      [Unit]
+      Description=express_for_{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}
+      After=multi-user.target
+
+      [Service]
+      WorkingDirectory=/home/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}
+      ExecStart=/usr/bin/node /home/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}/index.js
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: "/etc/systemd/system/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}.service"
+
+- name: Start custom express as a service
+  service:
+    name: "{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}.service"
+    state: started
+    enabled: yes
