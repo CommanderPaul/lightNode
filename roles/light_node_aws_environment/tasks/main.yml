@@ -14,9 +14,9 @@
       StackName: "{{ stack_name }}"
       AdminIPAddress: "{{ localhost_external_ip_address }}/32"
       KeyName: "{{ ec2_ssh_key_name }}"
-      # Ubuntu 20.04 HVM x88 64bit us-west-2
-      ImageId: "ami-056cb9ae6e2df09e8"
-      InstanceType: "t3a.micro"
+      # Ubuntu Server 22.04 LTS (HVM), SSD Volume Type, us-west-2
+      ImageId: "ami-0735c191cf914754d"
+      InstanceType: "t3a.nano"
     tags:
       Stack: "{{ stack_name }}"
   register: cloutformation_deploy_output
