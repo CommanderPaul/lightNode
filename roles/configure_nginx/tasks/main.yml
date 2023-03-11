@@ -1,0 +1,54 @@
+---
+
+# TODO add rate limit
+# limit_req_zone $binary_remote_addr zone=web_rate_limit:10m rate=100r/s;
+# limit_req zone=web_rate_limit burst=5 nodelay;
+
+- name: Upload basic config for light_node on nginx
+  copy:
+    content: |
+      
+      server {
+        listen 80;
+        listen [::]:80;
+        root /var/www/html;
+        index index.html index.htm index.nginx-debian.html;
+        server_name {{ lookup('ini', 'record section=route_53 file=./secrets.ini') }};
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+        location / {
+                    proxy_pass http://127.0.0.1:{{ lookup('ini', 'node_express_port section=secrets file=./secrets.ini') }};
+        }
+      }
+
+    dest: "/etc/nginx/sites-available/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}.conf"
+    force: no # do not overwrite if it already exists, even if text doesn't match, bad config files must be manually deleted
+  notify:
+  - Restart nginx
+  when:  target_state == "present"
+
+- name: Link config file - enable site
+  # Works but gives warning when removing that appears to be a bug - no easy way to suppress
+  file:
+    src: "/etc/nginx/sites-available/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}.conf"
+    state: "{{ 'link' if target_state == 'present' else 'absent' }}"
+
+
+- name: Look for existing certs
+  # cat on the end forces output to be zero when grep does not find string
+  shell: certbot certificates | grep 'No certificates found.' | cat
+  register: certbot_certs
+  changed_when: False
+
+- name: Check output for cert not found
+  set_fact:
+    certs_not_found: not_found
+  when: certbot_certs.stdout_lines | length > 0
+
+- name: If no certs present, request new from certbot
+  # certbot looks in sites-available for a conf file matching --domains <domainName>
+  shell: "certbot --nginx --non-interactive --agree-tos -m {{ lookup('ini', 'certbot_tos_email_address section=secrets file=./secrets.ini') }} -d {{ lookup('ini', 'record section=route_53 file=./secrets.ini') }}"
+  when: certs_not_found is defined # no certs found
+  notify:
+  - Restart nginx
