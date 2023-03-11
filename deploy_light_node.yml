@@ -1,0 +1,32 @@
+---
+# AWS Light Node Deployment
+# Removing cloudformation from console undo's everything in AWS except route53 entry
+- name: Thin Host Provision
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: no
+  vars:
+      target_state: present
+      target_region: us-west-2
+      # TODO push ami to here, region specific
+  roles:
+    - set_playbook_facts
+    - light_node_aws_environment
+
+- name: Light Node Configure
+  hosts: light_node
+  remote_user: ubuntu
+  gather_facts: false
+  become: yes
+  vars:
+    target_state: "{{ hostvars['localhost']['target_state'] }}"
+  roles:
+    - role: install_packages
+      when: target_state == 'present'
+
+    - role: configure_nginx
+      when: target_state == 'present'
+
+    - role: configure_project
+      when: target_state == 'present'
